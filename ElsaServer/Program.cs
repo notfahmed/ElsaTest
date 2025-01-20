@@ -2,6 +2,10 @@ using Elsa.EntityFrameworkCore.Extensions;
 using Elsa.EntityFrameworkCore.Modules.Management;
 using Elsa.EntityFrameworkCore.Modules.Runtime;
 using Elsa.Extensions;
+using Elsa.Workflows;
+using Elsa.Workflows.Attributes;
+using Elsa.Workflows.Memory;
+using Elsa.Workflows.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddElsa(elsa =>
@@ -74,3 +78,27 @@ app.UseWorkflows(); // Use Elsa middleware to handle HTTP requests mapped to HTT
 app.UseWorkflowsSignalRHubs(); // Optional SignalR integration. Elsa Studio uses SignalR to receive real-time updates from the server.
 
 app.Run();
+
+[Activity("ClaimPilotSum", "Math", "Finds sum of two numbers")]
+public class Sum : CodeActivity<int>
+{
+    public Sum() { } // Default constructor necessary in order to support JSON serialization.
+
+    public Sum(Variable<int> a, Variable<int> b, Variable<int> result)
+    {
+        A = new Input<int>(a);
+        B = new Input<int>(b);
+        Result = new Output<int>(result);
+    }
+
+    public Input<int> A { get; set; } = default!;
+    public Input<int> B { get; set; } = default!;
+
+    protected override void Execute(ActivityExecutionContext context)
+    {
+        var input1 = A.Get(context);
+        var input2 = B.Get(context);
+        var result = input1 + input2;
+        context.SetResult(result);
+    }
+}

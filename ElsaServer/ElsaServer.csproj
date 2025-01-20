@@ -47,6 +47,8 @@
       <Content Include="obj\project.packagespec.json" />
       <Content Include="obj\rider.project.model.nuget.info" />
       <Content Include="obj\rider.project.restore.info" />
+      <Content Remove="obj\**" />
+      <Content Remove="App_Data\**" />
     </ItemGroup>
 
     <ItemGroup>
@@ -55,6 +57,18 @@
       <Compile Include="obj\Debug\net8.0\ElsaServer.GlobalUsings.g.cs" />
       <Compile Include="obj\Debug\net8.0\ElsaServer.MvcApplicationPartsAssemblyInfo.cs" />
       <Compile Include="obj\Debug\net8.0\ElsaServer.RazorAssemblyInfo.cs" />
+      <Compile Remove="obj\**" />
+      <Compile Remove="App_Data\**" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <EmbeddedResource Remove="obj\**" />
+      <EmbeddedResource Remove="App_Data\**" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Remove="obj\**" />
+      <None Remove="App_Data\**" />
     </ItemGroup>
 
 </Project>
