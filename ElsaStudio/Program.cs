@@ -10,6 +10,7 @@ using Elsa.Studio.Login.HttpMessageHandlers;
 using Elsa.Studio.Workflows.Designer.Extensions;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
+using Elsa.Studio.UIHints;
 
 // Build the host.
 var builder = WebAssemblyHostBuilder.CreateDefault(args);

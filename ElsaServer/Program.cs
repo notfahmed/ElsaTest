@@ -152,40 +152,16 @@ public class DocSender : CodeActivity<ZDocument>
 {
     /// <inheritdoc />
     [JsonConstructor]
-    public DocSender([CallerFilePath] string? source = default, [CallerLineNumber] int? line = default) :
-        base(source, line)
+    public DocSender(Variable<ZDocument> document)
     {
-    }
-
-    public DocSender(Input<Variable<ZDocument>> document, Variable<ZDocument> Document2, Variable Document3, [CallerFilePath] string? source = default,
-        [CallerLineNumber] int? line = default) : this(source, line)
-    {
-        Document = document;
+        Document = new Input<ZDocument>(document);
     }
 
     /// <summary>
     ///     The doc to send.
     /// </summary>
-    [Input(Description = "The doc to send.", UIHint = InputUIHints.VariablePicker)]
-    public Input<Variable<ZDocument>> Document { get; set; } = default!;
-
-    /// <summary>
-    ///     The doc to send.
-    /// </summary>
-    [Input(Description = "The doc to send.", UIHint = InputUIHints.VariablePicker)]
-    public Variable<ZDocument> Document2 { get; set; } = default!;
-
-    /// <summary>
-    ///     The doc to send.
-    /// </summary>
-    [Input(Description = "The doc to send.", UIHint = InputUIHints.VariablePicker)]
-    public Variable Document3 { get; set; } = default!;
-
-    /// <summary>
-    ///     The doc to send.
-    /// </summary>
-    [Input(Description = "The doc to send.", UIHint = InputUIHints.VariablePicker)]
-    public iNPUTVariable Document3 { get; set; } = default!;
+    [Input(Description = "The doc to send.")]
+    public Input<ZDocument> Document { get; set; } = default!;
 
     /// <inheritdoc />
     protected override void Execute(ActivityExecutionContext context)
@@ -193,79 +169,70 @@ public class DocSender : CodeActivity<ZDocument>
         var res = Document.Get(context);
         var provider = context.GetService<IStandardOutStreamProvider>() ?? new StandardOutStreamProvider(Console.Out);
         var textWriter = provider.GetTextWriter();
-        // textWriter.WriteLine($"Doc sent {res?.DocPk}, {res?.FileName}");
-    }
-}
-
-public class SumTest : CodeActivity<int>
-{
-    public SumTest(Variable<int> a, Variable<int> b, Variable<int> result)
-    {
-        A = new Input<int>(a);
-        B = new Input<int>(b);
-        Result = new Output<int>(result);
-    }
-
-    public Input<int> A { get; set; } = default!;
-    public Input<int> B { get; set; } = default!;
-
-    protected override void Execute(ActivityExecutionContext context)
-    {
-        var a = A.Get(context);
-        var b = B.Get(context);
-        var result = a + b;
-        context.SetResult(result);
+        textWriter.WriteLine($"Doc sent {res?.DocPk}, {res?.FileName}");
     }
 }
 
 public class ZDocument
-    {
-        public int DocPk { get; set; }
-        public string? FileName { get; set; }
-    }
+{
+    public int DocPk { get; set; }
+    public string? FileName { get; set; }
+}
 
-    internal class DocumentTypeHandler : DropDownOptionsProviderBase
+internal class DocumentTypeHandler : DropDownOptionsProviderBase
+{
+
+    protected override ValueTask<ICollection<SelectListItem>> GetItemsAsync(PropertyInfo propertyInfo, object? context, CancellationToken cancellationToken)
     {
-        protected override ValueTask<ICollection<SelectListItem>> GetItemsAsync(PropertyInfo propertyInfo, object? context, CancellationToken cancellationToken)
+        return new ValueTask<ICollection<SelectListItem>>([
+            new SelectListItem("DOC", "1"),
+            new SelectListItem("PDF", "2"),
+            new SelectListItem("DOCX", "3"),
+            new SelectListItem("XSL", "4")
+        ]);
+    }
+}
+public class RefreshUIHandler : IPropertyUIHandler
+{
+    public ValueTask<IDictionary<string, object>> GetUIPropertiesAsync(PropertyInfo propertyInfo, object? context, CancellationToken cancellationToken = default)
+    {
+        IDictionary<string, object> result = new Dictionary<string, object>
         {
-            return new ValueTask<ICollection<SelectListItem>>([
-                new SelectListItem("DOC", "1"),
-                new SelectListItem("PDF", "2"),
-                new SelectListItem("DOCX", "3"),
-                new SelectListItem("XSL", "4")
-            ]);
-        }
+            { "Refresh", true }
+        };
+        return ValueTask.FromResult(result);
     }
 }
 
+
 internal class RefreshUiHandler : IPropertyUIHandler
+{
+    public ValueTask<IDictionary<string, object>> GetUIPropertiesAsync(PropertyInfo propertyInfo, object? context,
+        CancellationToken cancellationToken = default)
     {
-        public ValueTask<IDictionary<string, object>> GetUIPropertiesAsync(PropertyInfo propertyInfo, object? context,
-            CancellationToken cancellationToken = default)
+        IDictionary<string, object> result = new Dictionary<string, object>
         {
-            IDictionary<string, object> result = new Dictionary<string, object>
-            {
-                { "Refresh", true }
-            };
-            return ValueTask.FromResult(result);
-        }
+            { "Refresh", true }
+        };
+        return ValueTask.FromResult(result);
     }
+}
 
-    [Activity("ClaimPilot", "Custom", "Select Doc")]
-    public class DocumentTypeSelectorActivity : CodeActivity
+[Activity("ClaimPilot", "Custom", "Select Doc")]
+public class DocumentTypeSelectorActivity : CodeActivity
+{
+    [Input(
+        Description = "The content type to use when sending the request.",
+        UIHint = InputUIHints.DropDown,
+        UIHandlers = [typeof(DocumentTypeHandler), typeof(RefreshUIHandler)]
+    )]
+    public Input<string> DocType { get; set; } = default!;
+
+    /// <inheritdoc />
+    protected override void Execute(ActivityExecutionContext context)
     {
-        [Input(
-            Description = "The content type to use when sending the request."
-            // UIHint = InputUIHints.DropDown
-            // UIHandlers = [typeof(DocumentTypeHandler)]
-        )]
-        public Input<Variable<ZDocument>> DocType { get; set; } = default!;
-
-        /// <inheritdoc />
-        protected override void Execute(ActivityExecutionContext context)
-        {
-            var provider = context.GetService<IStandardOutStreamProvider>() ?? new StandardOutStreamProvider(Console.Out);
-            var textWriter = provider.GetTextWriter();
-            textWriter.WriteLine($"Doc Type Selected :{DocType.Get(context)}");
-        }
+        var provider = context.GetService<IStandardOutStreamProvider>() ?? new StandardOutStreamProvider(Console.Out);
+        var textWriter = provider.GetTextWriter();
+        textWriter.WriteLine($"Doc Type Selected :{DocType.Get(context)}");
     }
+}
