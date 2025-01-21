@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
 using Elsa.EntityFrameworkCore.Extensions;
@@ -10,6 +11,8 @@ using Elsa.Workflows.Contracts;
 using Elsa.Workflows.Memory;
 using Elsa.Workflows.Models;
 using Elsa.Workflows.Services;
+using Elsa.Workflows.UIHints;
+using Elsa.Workflows.UIHints.Dropdown;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddElsa(elsa =>
@@ -58,6 +61,7 @@ builder.Services.AddElsa(elsa =>
 
     // Register custom workflows from the application, if any.
     elsa.AddWorkflowsFrom<Program>();
+    elsa.UseWorkflowManagement(management => { management.AddVariableType<ZDocument>("CRM"); });
 });
 
 // Configure CORS to allow designer app hosted on a different origin to invoke the APIs.
@@ -68,7 +72,8 @@ builder.Services.AddCors(cors => cors
         .AllowAnyMethod()
         .WithExposedHeaders(
             "x-elsa-workflow-instance-id"))); // Required for Elsa Studio in order to support running workflows from the designer. Alternatively, you can use the `*` wildcard to expose all headers.
-
+builder.Services.AddScoped<IPropertyUIHandler, DocumentTypeHandler>();
+builder.Services.AddScoped<IPropertyUIHandler, RefreshUiHandler>();
 // Add Health Checks.
 builder.Services.AddHealthChecks();
 
@@ -142,10 +147,125 @@ public class WriteVarLine : CodeActivity
     }
 }
 
-internal static class ElsaHelper
+[Activity("ClaimPilot", "Custom", "Send Doc")]
+public class DocSender : CodeActivity<ZDocument>
 {
-    public static Variable? GetVarFromContext(Variable variable, ActivityExecutionContext context)
+    /// <inheritdoc />
+    [JsonConstructor]
+    public DocSender([CallerFilePath] string? source = default, [CallerLineNumber] int? line = default) :
+        base(source, line)
     {
-        return context.ExpressionExecutionContext.EnumerateVariablesInScope().FirstOrDefault(x => x.Id == variable.Id);
+    }
+
+    public DocSender(Input<Variable<ZDocument>> document, Variable<ZDocument> Document2, Variable Document3, [CallerFilePath] string? source = default,
+        [CallerLineNumber] int? line = default) : this(source, line)
+    {
+        Document = document;
+    }
+
+    /// <summary>
+    ///     The doc to send.
+    /// </summary>
+    [Input(Description = "The doc to send.", UIHint = InputUIHints.VariablePicker)]
+    public Input<Variable<ZDocument>> Document { get; set; } = default!;
+
+    /// <summary>
+    ///     The doc to send.
+    /// </summary>
+    [Input(Description = "The doc to send.", UIHint = InputUIHints.VariablePicker)]
+    public Variable<ZDocument> Document2 { get; set; } = default!;
+
+    /// <summary>
+    ///     The doc to send.
+    /// </summary>
+    [Input(Description = "The doc to send.", UIHint = InputUIHints.VariablePicker)]
+    public Variable Document3 { get; set; } = default!;
+
+    /// <summary>
+    ///     The doc to send.
+    /// </summary>
+    [Input(Description = "The doc to send.", UIHint = InputUIHints.VariablePicker)]
+    public iNPUTVariable Document3 { get; set; } = default!;
+
+    /// <inheritdoc />
+    protected override void Execute(ActivityExecutionContext context)
+    {
+        var res = Document.Get(context);
+        var provider = context.GetService<IStandardOutStreamProvider>() ?? new StandardOutStreamProvider(Console.Out);
+        var textWriter = provider.GetTextWriter();
+        // textWriter.WriteLine($"Doc sent {res?.DocPk}, {res?.FileName}");
     }
 }
+
+public class SumTest : CodeActivity<int>
+{
+    public SumTest(Variable<int> a, Variable<int> b, Variable<int> result)
+    {
+        A = new Input<int>(a);
+        B = new Input<int>(b);
+        Result = new Output<int>(result);
+    }
+
+    public Input<int> A { get; set; } = default!;
+    public Input<int> B { get; set; } = default!;
+
+    protected override void Execute(ActivityExecutionContext context)
+    {
+        var a = A.Get(context);
+        var b = B.Get(context);
+        var result = a + b;
+        context.SetResult(result);
+    }
+}
+
+public class ZDocument
+    {
+        public int DocPk { get; set; }
+        public string? FileName { get; set; }
+    }
+
+    internal class DocumentTypeHandler : DropDownOptionsProviderBase
+    {
+        protected override ValueTask<ICollection<SelectListItem>> GetItemsAsync(PropertyInfo propertyInfo, object? context, CancellationToken cancellationToken)
+        {
+            return new ValueTask<ICollection<SelectListItem>>([
+                new SelectListItem("DOC", "1"),
+                new SelectListItem("PDF", "2"),
+                new SelectListItem("DOCX", "3"),
+                new SelectListItem("XSL", "4")
+            ]);
+        }
+    }
+}
+
+internal class RefreshUiHandler : IPropertyUIHandler
+    {
+        public ValueTask<IDictionary<string, object>> GetUIPropertiesAsync(PropertyInfo propertyInfo, object? context,
+            CancellationToken cancellationToken = default)
+        {
+            IDictionary<string, object> result = new Dictionary<string, object>
+            {
+                { "Refresh", true }
+            };
+            return ValueTask.FromResult(result);
+        }
+    }
+
+    [Activity("ClaimPilot", "Custom", "Select Doc")]
+    public class DocumentTypeSelectorActivity : CodeActivity
+    {
+        [Input(
+            Description = "The content type to use when sending the request."
+            // UIHint = InputUIHints.DropDown
+            // UIHandlers = [typeof(DocumentTypeHandler)]
+        )]
+        public Input<Variable<ZDocument>> DocType { get; set; } = default!;
+
+        /// <inheritdoc />
+        protected override void Execute(ActivityExecutionContext context)
+        {
+            var provider = context.GetService<IStandardOutStreamProvider>() ?? new StandardOutStreamProvider(Console.Out);
+            var textWriter = provider.GetTextWriter();
+            textWriter.WriteLine($"Doc Type Selected :{DocType.Get(context)}");
+        }
+    }
