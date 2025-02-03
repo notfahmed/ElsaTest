@@ -1,18 +1,36 @@
+using Elsa.Alterations.Core.Contracts;
+using Elsa.Alterations.Core.Models;
 using Elsa.Workflows;
 using Elsa.Workflows.Management;
 using Elsa.Workflows.Management.Filters;
 using Elsa.Workflows.Runtime;
 using Elsa.Workflows.Runtime.Messages;
+using Elsa.Workflows.Runtime.Options;
+using Elsa.Workflows.Runtime.Requests;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ElsaServer.Pages;
 
 [Route("/resume")]
-public class ResumeController(IWorkflowRuntime runtime, IWorkflowInstanceStore store) : Controller
+public class ResumeController(
+    IWorkflowRuntime runtime,
+    IWorkflowInstanceStore store,
+    IWorkflowMatcher matcher,
+    IWorkflowDispatcher dispatcher,
+    IWorkflowInstanceManager manager) 
+    : Controller
 {
     [HttpPost]
     public async void Resume([FromBody] string something)
     {
+        
+        await dispatcher.DispatchAsync(
+            new DispatchResumeWorkflowsRequest(
+                "MyEventWorkflow",
+                "MyEvent"),
+            new DispatchWorkflowOptions());
+        var bookmarks = await matcher.FindBookmarksAsync("MyEventWorkflow", "MyEvent");
+        var bookmark = bookmarks.ToArray().First();
         var workflowInstances = await store.FindManyAsync(new WorkflowInstanceFilter
         {
             //Id = null,
