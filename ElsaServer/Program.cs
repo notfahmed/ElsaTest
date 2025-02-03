@@ -1,3 +1,4 @@
+using System.Net;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
@@ -5,7 +6,9 @@ using Elsa.EntityFrameworkCore.Extensions;
 using Elsa.EntityFrameworkCore.Modules.Management;
 using Elsa.EntityFrameworkCore.Modules.Runtime;
 using Elsa.Extensions;
+using Elsa.Http;
 using Elsa.Workflows;
+using Elsa.Workflows.Activities;
 using Elsa.Workflows.Attributes;
 using Elsa.Workflows.Contracts;
 using Elsa.Workflows.Memory;
@@ -13,6 +16,7 @@ using Elsa.Workflows.Models;
 using Elsa.Workflows.Services;
 using Elsa.Workflows.UIHints;
 using Elsa.Workflows.UIHints.Dropdown;
+using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddElsa(elsa =>
@@ -77,12 +81,15 @@ builder.Services.AddScoped<IPropertyUIHandler, RefreshUiHandler>();
 // Add Health Checks.
 builder.Services.AddHealthChecks();
 
+builder.Services.AddControllers();
+
 // Build the web application.
 var app = builder.Build();
 
 // Configure web application's middleware pipeline.
 app.UseCors();
 app.UseRouting(); // Required for SignalR.
+app.MapControllers();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseWorkflowsApi(); // Use Elsa API endpoints.
@@ -90,6 +97,48 @@ app.UseWorkflows(); // Use Elsa middleware to handle HTTP requests mapped to HTT
 app.UseWorkflowsSignalRHubs(); // Optional SignalR integration. Elsa Studio uses SignalR to receive real-time updates from the server.
 
 app.Run();
+
+
+public class MyEventWorkflow : WorkflowBase
+{
+    protected override void Build(IWorkflowBuilder builder)
+    {
+        builder.Root = new Sequence
+        {
+            Activities =
+            {
+                new WriteLine("Starting workflow..."),
+                new LongRunningActivityPauser(), // This will block further execution until the MyEvent's bookmark is resumed.
+               // new LongRunningActivityResumer(),
+                new WriteLine("Event occurred!"),
+                
+            }
+        };
+    }
+}
+
+[Activity("LongRunningActivityPauser", "Custom", "Creates a bookmark")]
+public class LongRunningActivityPauser : Activity<int>
+{
+    protected override void Execute(ActivityExecutionContext context)
+    {
+        // some operation that does something
+        
+        // pauses here
+        context.CreateBookmark("MyEvent");
+        
+        // presumably ends here, and we have another activity to continue the workflow?
+    }
+}
+
+[Activity("LongRunningActivityResumer", "Custom", "Resumes after a bookmark")]
+public class LongRunningActivityResumer : HttpEndpoint
+{
+    protected override void Execute(ActivityExecutionContext context)
+    {
+        // resume the workflow?
+    }
+}
 
 [Activity("ClaimPilotSum", "Custom", "Finds sum of two numbers")]
 public class Sum : CodeActivity<int>
